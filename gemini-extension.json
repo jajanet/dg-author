@@ -1,0 +1,32 @@
+{
+  "name": "guides",
+  "version": "1.0.0",
+  "mcpServers": {
+    "context7": {
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp", "--api-key", "ctx7sk-484cb26b-56c3-4a8a-a5b8-96e9156d9638"]
+    }
+  },
+  "commands": [
+    {
+      "name": "dotguides/author",
+      "path": "commands/dotguides/author.toml"
+    },
+    {
+      "name": "context7-partial",
+      "path": "commands/context7/context7-partial.toml"
+    },
+    {
+      "name": "context7-total",
+      "path": "commands/context7/context7-total.toml"
+    },
+    {
+      "name": "compare-guides-vs-reg-lookup",
+      "path": "commands/compare-guides-vs-reg-lookup.toml"
+    },
+    {
+      "name": "dotguides/author-v2",
+      "path": "commands/dotguides/author-v2.toml"
+    }
+  ]
+}

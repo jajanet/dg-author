@@ -1,0 +1,14 @@
+
+prompt = '''
+ STEP: run resolve_library_id
+
+ STEP: Use the project name to search context7 for the best matches and display the list to the human.
+ 
+ STEP: Ask the user which library they want to use.
+
+ STEP: Use human answer to run command: run get_library_docs
+
+ STEP: use GEMINI.md context containing dotguides author content to create DOTGUIDES_PLAN.md plan in project root using context7 contents
+
+ STEP: Ask human to approve plan to implement .guides folder
+'''

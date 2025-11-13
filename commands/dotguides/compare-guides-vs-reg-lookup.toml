@@ -1,0 +1,13 @@
+description = "Compare token usage, latency and tasks success estimation" 
+
+prompt = '''
+
+STEP: Ask the user for a task to compare ex. How do I deploy a firebase function ?
+
+STEP: Run a lookup searching the .guides folder to complete the given task. 
+
+STEP: Run a regular lookup ( project documentation, web search etc...) to complete the given task.
+
+STEP: Output the results in a table with column headers with .guides and without .guides, with rows should be: token usage, latency and task estimation success
+
+'''

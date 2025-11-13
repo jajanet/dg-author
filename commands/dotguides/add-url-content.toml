@@ -1,0 +1,35 @@
+description = "Capture additional information from a bulk list of URLs and convert it into LLM-ready guidance for the .guides folder."
+
+prompt = '''
+STEP: Capture any additional information the human might want to include that was missed during internal analysis.
+
+OBJECTIVE: Identify and incorporate relevant information not yet represented in our current DOTGUIDES.md from a bulk list of URLs.
+
+INSTRUCTION:
+1. Ask the user:
+   ASK: "Please paste the URLs you want included (one per line). Optionally provide a <section> label to group the output."
+   ASK_SUBTITLE: "Example:\nhttps://firebase.google.com/docs/functions/schedule-functions\nhttps://firebase.google.com/docs/functions/pubsub-events"
+
+2. For each URL provided:
+   - Fetch and analyze the page.
+   - Derive a title in this order: <h1> → og:title → <title> → last URL segment (Title Case).
+   - Extract key guidance: overview/purpose, setup/prerequisites, usage/examples (concise), API notes/options, limitations/troubleshooting.
+   - Extract coding examples (concise and runnable where possible); use fenced code blocks with language tags (e.g., ```ts, ```js, ```python), and redact secrets/placeholders.
+
+3. Integrate:
+   - Append each of the files in the DOTGUIDES.md file at the root of the project under the section header docs.
+   - Use slugified titles for filenames (e.g., my-topic.md).
+   - Cross-link to existing related guides where helpful and avoid duplicating existing content.
+
+4. Summarize:
+   - Output a table of what was added:
+     | Section | Title | URL | Inserted File |
+   - Briefly describe why each item was included.
+
+NOTES:
+- Maintain clarity and factual accuracy; summarize rather than copy large verbatim blocks.
+- Attribute the source URL at the top of each generated file (e.g., "Source: <url>").
+- Keep each file concise (≈300–800 words) and consistent with existing style/terminology.
+- Skip pages that fail to fetch and report the reason.
+- Include concise coding examples only related to the page content; prefer idiomatic modern syntax and minimal boilerplate.
+'''

@@ -1,0 +1,86 @@
+description = "Minimal workflow to gather input, analyze a repo, and generate/execute DOTGUIDES_PLAN.md (uses Context7 for permitted lookups)."
+
+prompt = '''
+STEP 0 — Tooling
+
+You have access to an MCP server named context7 for web fetching.
+
+When external lookups are permitted, use Context7 to fetch/crawl pages (HTML/body + metadata). If a fetch fails, record the error and continue.
+
+STEP 1 — Mode & permissions
+ASK: “Mode? (Auto / Assisted / Manual)”
+ASK: “May I analyze the repo and (optionally) follow up to 3 linked docs from README/configs using Context7? (In-repo only / In-repo + Links / No)”
+
+STEP 2 — Purpose block (concise, evidence-only)
+OBJECTIVE: Create a short, task-first Purpose anchor.
+SOURCES: README, docs/, examples/, package.json (description/exports/bin/engines). If permitted, follow at most 3 linked docs via Context7.
+RULES:
+
+Low temperature (~0.2). Evidence-only; otherwise set “Needs author input”.
+
+Exactly 3 Primary tasks in imperative form (≤10 words).
+OUTPUT JSON:
+{
+"purpose_block": {
+"purpose": "...",
+"audience_runtime": "...",
+"primary_tasks": ["...", "...", "..."],
+"integration_surface": "...",
+"non_goals": "...",
+"version_policy": "...",
+"security_constraints": "..."
+},
+"source_notes": ["README.md: Usage", "package.json:scripts.build"]
+}
+If Manual: ask field-by-field in the same order, then emit JSON.
+
+STEP 3 — Minimal repo analysis (compact artifacts)
+GOAL: Reduce LLM latency by capturing small, queryable blocks.
+Produce, evidence-only (brief; cite “file:section”; use Context7 only if permitted):
+
+API_SURFACE.json
+{ "imports":[...], "cli":[...], "endpoints_or_triggers":[...], "notes":[...] }
+
+ENTRYPOINTS.json
+{ "apps":[...], "scripts":{"build":"...","dev":"...","test":"...","deploy":"..."}, "artifacts":[...] }
+
+ENV_VARS.md — table: NAME | Purpose | Required | Default
+
+TOP_TASKS.md — three bullets + one-line “Verify:” each
+
+BUILD_LOCAL_TESTING.md — Build / Run / Test commands
+
+DEPLOYMENT.md — Targets / Commands / Pre-checks / Post-verify
+
+VERSION_POLICY.json — { default_policy, rationale, components[] }
+
+TASKS_MATRIX.json — for the 3 tasks (prereqs, inputs, steps, verify, evidence)
+
+SOURCES.json — ["file:section", ...]
+
+MISSING DATA
+Treat "", "N/A", "Needs author input", null as missing. For each missing field, briefly explain what’s needed and prompt for a concrete value. Re-ask once if unclear.
+
+STEP 4 — Plan & approval
+Draft DOTGUIDES_PLAN.md with headings for each artifact and a short summary of contents/changes.
+Show plan → ASK: Approve / Edit / Cancel.
+
+Edit: ask what to change; update and re-show.
+
+Approve: create/modify files as described.
+
+Cancel: stop cleanly.
+
+CONSTRAINTS
+
+Evidence-only; cite briefly (e.g., "README.md: Usage"). Use Context7 exclusively for permitted external fetches.
+
+Keep JSON blocks ≤ ~30 lines (TASKS_MATRIX may be longer).
+
+Be concise; prefer bullets/tables over prose.
+
+Redact secrets as <PLACEHOLDER>.
+
+DONE
+Output the final DOTGUIDES_PLAN.md and list of created/updated files.
+'''

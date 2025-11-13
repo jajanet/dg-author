@@ -1,0 +1,315 @@
+description = "Workflow to gather user feedback and analyze a repository to create and then execute a DOTGUIDES_PLAN.md."
+
+prompt = '''
+
+STEP: Capture a concise, LLM-ready Purpose block for this library to anchor downstream guidance.
+
+OBJECTIVE
+Produce a short, task-first Purpose block for DOTGUIDES. Use only public evidence; if unsure, temporarily set to “Needs author input”.
+
+EVIDENCE SOURCES (priority)
+
+1. In-repo docs and files: README, docs/, examples/, package.json (description/exports/bin/engines)
+2. Config references in-repo (mkdocs/docusaurus/sphinx pages) if present
+3. OPTIONAL external links found in README/configs (docs site, GitHub Pages, ReadTheDocs) — only after explicit user permission (see below)
+
+TEMPLATE (fields, in order)
+
+-   Purpose: <one sentence on the problem + outcome>
+-   Audience & runtime: <who uses it> on <environments/versions>
+-   Primary tasks: 1) <task>, 2) <task>, 3) <task>
+-   Integration surface: <CLI / SDK exports / HTTP / framework plugin>
+-   Non-goals/limits: <what it does NOT do>
+-   Version policy: <latest vs legacy rule of thumb>
+-   Security/constraints: <auth/secrets/logging note, if relevant>
+
+LANGUAGE & EXTRACTION RULES
+
+-   Temperature low (≈0.1–0.2) to minimize variation.
+-   Evidence-only; no speculation. Prefer concrete names/versions only if they appear in sources.
+-   Use short, active sentences; avoid marketing language.
+-   If a field cannot be supported by evidence, set it to: Needs author input.
+
+PRIMARY TASKS RULES
+
+-   Extract candidates from README/examples with priority: “Usage” > “Getting Started” > “Examples”.
+-   Rank by prominence and frequency (headings > code comments > body).
+-   Canonicalize to exactly three tasks in **imperative, user-focused** phrasing; ≤10 words each.
+    Examples (class-string libs): “Conditionally include CSS classes”, “Combine and deduplicate class names”, “Use with React class props”.
+
+ASK USER: "How would you like to fill the libraries description block?
+
+MODE: Ask the user:
+
+1. Auto — I will populate it from README/docs/examples/package.json (evidence-only).
+2. Assisted — I will propose values and you can edit.
+3. Manual — you will fill each field."
+
+OPTIONAL LINK LOOKUPS (permissioned)
+Ask: “May I follow the documentation links referenced in this repo to fill gaps? (Yes/No)”
+
+-   If Yes: Follow only links found in repo materials; stop after 3 pages or once all fields are filled. Record citations.
+-   If No: Skip link lookups and proceed with in-repo evidence only.
+
+IF user selects Auto or Assisted:
+
+-   Derive values ONLY from public evidence (README, examples, package.json exports/bin; plus permitted linked docs if allowed).
+-   Avoid legacy/runtime claims unless explicitly stated in sources.
+-   For imports/CLI, use a concrete, user-facing form if evidenced; otherwise set to Needs author input.
+-   Emit a single JSON object named purpose_block with keys:
+    purpose, audience_runtime, primary_tasks (array of 3 strings), integration_surface, non_goals, version_policy, security_constraints.
+-   Also include source_notes (array of brief citations, e.g., "README.md: Usage", "package.json: exports").
+
+IF user selects Manual:
+
+-   Prompt the user field-by-field in the TEMPLATE order.
+-   After each answer, show the growing draft.
+-   When all fields are filled, emit the same purpose_block JSON.
+
+MISSING-FIELD RESOLUTION (mandatory, interactive)
+
+-   Values considered MISSING: "", "None", "N/A", "NA", "Not applicable", "Needs author input", null.
+-   For each missing field, present a **human-readable label** (not camelCase) **plus a short description** of what is needed, then ask for the value.
+    Use the following labels and descriptions:
+    • **Purpose** — one sentence on the problem this library solves and the outcome for users.  
+    • **Audience & Runtime** — who uses it (roles) and supported environments/versions (e.g., Node, browsers).  
+    • **Primary Tasks** — three common user goals in imperative form (≤10 words each).  
+    • **Integration Surface** — how users integrate (CLI command, SDK import, HTTP trigger, framework plugin), with an example if known.  
+    • **Non-goals / Limits** — what it explicitly does not cover (e.g., no CSS-in-JS, not for long-running servers).  
+    • **Version Policy** — default stance (e.g., Latest by default; legacy allowed when X).  
+    • **Security / Constraints** — auth/secrets/logging guidance; if a pure utility, suggest “Pure utility; no network, filesystem, or secrets handling” and ask the user to confirm.
+-   Prompt format for each missing field:
+    “**<Label>** — <Description>.  
+    Current value: <current>.  
+    Please provide a concrete value for **<Label>**:”
+-   Validate non-empty; if unclear, ask a 1-line clarifier (max once).
+-   Update the draft and continue until **all fields are concrete**.
+
+REVIEW
+Show the compiled Purpose block and ask: Approve / Edit / Cancel.
+
+-   Edit → ask which field; update and re-show.
+-   Approve → persist to DOTGUIDES_STATE.json in project root under a stable heading; confirm.
+-   Cancel → discard cleanly.
+
+OUTPUT FORMAT (strict):
+{
+"purpose_block": {
+"purpose": "...",
+"audience_runtime": "...",
+"primary_tasks": ["...", "...", "..."],
+"integration_surface": "...",
+"non_goals": "...",
+"version_policy": "...",
+"security_constraints": "..."
+},
+"source_notes": ["..."]
+}
+
+STEP: Analyze the repository (with permission) and produce compact, evidence-only artifacts to generate DOTGUIDES content. Include a collaborative version policy and task matrix with user approval.
+
+OBJECTIVE
+Reduce LLM latency, token usage, and task retries by creating small, queryable blocks (JSON/MD) that encode public usage, entrypoints, env/config, build/test/deploy, and the top tasks—so agents read from .guides instead of crawling web docs.
+
+PERMISSION
+Ask: “May I analyze this repository and (optionally) follow documentation links referenced in README/configs to fill gaps?”
+Choices:
+
+-   In-repo only
+-   In-repo + Follow linked docs (up to 3 pages)
+-   No
+
+EVIDENCE SOURCES (priority)
+
+1. In-repo: README, docs/, examples/, package.json (description/exports/bin/engines), CI (.github/workflows/\*), Dockerfiles, package scripts
+2. Workspace manifests: pnpm-workspace.yaml, turbo.json, nx.json, lerna.json, rush.json
+3. Code structure: bin/ exports/ main, framework configs (next.config._, vite.config._), src/\*\* patterns
+4. Optional (only if permitted): follow up to 3 linked pages from README/configs
+
+FOCUS AREAS (map findings)
+
+-   Instance Implementation
+-   Data Fetching
+-   Build
+-   Local Testing
+-   Deployment
+-   Code Structure (entrypoints, package/workspace layout)
+
+LANGUAGE & EXTRACTION RULES
+
+-   Temperature low (~0.1–0.2). Evidence-only; add brief citations (“README.md: Usage”, “package.json:scripts.build”).
+-   Prefer concrete, user-facing forms (exact import or CLI). No speculation.
+-   If unknown after permitted lookups, set exactly: Needs author input.
+
+PRIMARY TASKS CANONICALIZATION
+
+-   Extract from README/examples (priority: Usage > Getting Started > Examples).
+-   Rank by prominence/frequency; return exactly three tasks.
+-   Canonicalize to imperative, user-focused phrases (≤10 words each).
+
+COLLABORATION A: Version Policy Workshop
+Discovery: infer components (sdk/cli/trigger/module/service) from packages, scripts, triggers, configs; collect version signals (CHANGELOG, engines, badges, migration docs).
+Draft `VERSION_POLICY.json`:
+{
+"default_policy": "latest|legacy|unknown",
+"rationale": "short evidence-backed explanation",
+"components": [
+{ "name": "string", "applies_to": "cli|sdk|trigger|module|service",
+"policy": "latest|legacy|unknown",
+"evidence": ["file:section"], "notes": "optional" }
+],
+"open_questions": ["..."]
+}
+Show to user → “Adopt this version policy?” Options: Approve / Edit / Skip.
+
+-   Edit: allow per-row policy+rationale changes.
+-   Skip: keep unknown; will re-prompt before scaffold.
+
+COLLABORATION B: Task Discovery & Requirements Matrix
+Identify top three tasks (canonicalized as above). Produce `TASKS_MATRIX.json`:
+{
+"tasks": [
+{
+"name": "imperative task (≤10 words)",
+"purpose": "short user outcome",
+"prereqs": ["runtime version", "project configured", "..."],
+"inputs": [
+{ "name": "ENV_VAR", "required": true, "description": "why needed", "source": "README.md: Env" }
+],
+"steps": ["exact commands/code in order"],
+"verify": "single observable check",
+"files_touched": ["paths"],
+"commands": ["exact cli commands"],
+"evidence": ["file:section"],
+"gaps": ["what’s missing"]
+}
+]
+}
+Show to user → “Are these the right tasks?” Options: Approve / Reorder / Replace / Edit details.
+
+-   Replace: propose alternates from docs/examples.
+-   Edit details: fill gaps interactively (ask one-by-one; validate non-empty).
+
+OUTPUTS (compact; embed into DOTGUIDES_PLAN.md)
+
+1. API_SURFACE.json — public usage quick lookup
+   {
+   "imports": [ { "example": "import X from 'pkg'", "when": "basic use" } ],
+   "cli": [ { "command": "pkg cmd --flag", "when": "task" } ],
+   "triggers_or_endpoints": [ { "name": "...", "kind": "http|event|cli", "path_or_id": "..." } ],
+   "notes": ["only if essential"]
+   }
+
+2. ENTRYPOINTS.json — what to run/build/test
+   {
+   "apps": [ { "name": "...", "type": "cli|server|lib", "entry": "path|bin", "framework": "next|vite|none" } ],
+   "scripts": { "build": "…", "dev": "…", "test": "…", "deploy": "…" },
+   "artifacts": ["dist|build|target|site|none"]
+   }
+
+3. ENV_VARS.md — tiny table
+   | NAME | Purpose | Required | Default |
+   |------|---------|----------|---------|
+   | ... | ... | yes/no | ... |
+
+4. TOP_TASKS.md — three bullets + one-line verify each
+
+-   <Task 1>  
+    Verify: <check>
+-   <Task 2>  
+    Verify: <check>
+-   <Task 3>  
+    Verify: <check>
+
+5. BUILD_LOCAL_TESTING.md — concise
+
+-   Build: `<command>`
+-   Local run/emulator: `<command>`
+-   Tests: `<command>`
+-   Notes: bullets only
+
+6. DEPLOYMENT.md — checklist
+
+-   Targets: <service/platform>
+-   Commands: `<deploy command>`
+-   Pre-checks: <lint/test/build>
+-   Post-verify: <health check/log>
+
+7. VERSION_POLICY.json — from workshop (above)
+
+8. TASKS_MATRIX.json — from workshop (above)
+
+9. SOURCES.json — citations for audit
+   [ "README.md: Usage", "package.json:scripts.build", "workflow.yml: build job" ]
+
+SIZE LIMITS
+
+-   Each JSON block ≤ ~30 lines (TASKS_MATRIX ≤ ~120 lines for 3 tasks).
+-   Each MD block ≤ ~20 lines. Prefer bullets/tables over paragraphs.
+
+STRICT COMPLETENESS & NORMALIZATION
+
+-   Required: API_SURFACE.json, ENTRYPOINTS.json, ENV_VARS.md, TOP_TASKS.md, BUILD_LOCAL_TESTING.md, DEPLOYMENT.md, VERSION_POLICY.json, TASKS_MATRIX.json, SOURCES.json.
+-   Treat "", "None", "N/A", "NA", "Not applicable", "Needs author input", null as MISSING.
+-   For any MISSING field/value, prompt with a human-readable label + description:
+    • **Version Policy — default policy.** What should agents assume by default (Latest/Legacy) and why?  
+    • **Audience & Runtime** — supported environments/versions (e.g., Node, browsers).  
+    • **Task Inputs** — env vars or secrets required; why needed.  
+    • **Build/Run/Deploy Commands** — exact commands.  
+    • **Integration Surface** — import line or CLI form users should copy.  
+    • **Security / Constraints** — auth/secrets/logging guidance; for pure utilities suggest: “Pure utility; no network, filesystem, or secrets handling.” Ask user to confirm.
+-   Ask the missing fields **one-by-one**; validate non-empty; re-validate until all blocks are complete.
+
+PERSISTENCE (into DOTGUIDES_PLAN.md)
+Insert each block under stable headings in this order:
+
+## API_SURFACE.json
+
+## ENTRYPOINTS.json
+
+## ENV_VARS.md
+
+## TOP_TASKS.md
+
+## BUILD_LOCAL_TESTING.md
+
+## DEPLOYMENT.md
+
+## VERSION_POLICY.json
+
+## TASKS_MATRIX.json
+
+## SOURCES.json
+
+APPROVAL
+Show a short summary and the list of items filled vs. missing (from earlier).
+Ask: “Approve, Edit, or Collect Missing Info now?”
+
+-   Edit: targeted edit of a specific block.
+-   Collect: prompt the user for the missing items immediately (one-by-one).
+-   Approve: proceed to the next step to scaffold `.guides` from these blocks.
+
+STEP: Capture any additional information the human might like to include or was missed by our internal analysis.
+
+OBJECTIVE: Find additional information the user might want to include
+
+ASK: Is there any additional information you want to include about your library that wasn't previously captured ?
+ASK_SUBTITLE: Please present a <title>, <url>
+
+Perform the web search of the url, create an agentic flow for yourself to capture all available information and convert it into LLM guidance for inclusion in the .guides folder.
+
+Insert the information into the .guides folder where you think most appropriate.
+
+Use the `GEMINI.md` file for guidance on the dotguides structure.
+
+STEP: Based on user input and your analysis, write a detailed `DOTGUIDES_PLAN.md`.
+
+    - The plan must be in Markdown.
+    - It must contain a heading for each file to be created or modified.
+    - Under each heading, provide a summary of the changes or the full proposed content.
+
+STEP: Display the complete plan to the user and ask for approval.
+
+STEP: If the user approves, execute the plan by creating and modifying the files as described.
+
+'''
