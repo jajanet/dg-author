@@ -29,7 +29,7 @@ For more details on the Dotguides specification, see the [main Dotguides reposit
 Install the Author extension by running the following command from your terminal:
 
 ```bash
-gemini extensions install [https://github.com/jajanet/dg-author](https://github.com/jajanet/dg-author)
+gemini extensions install https://github.com/jajanet/dg-author
 ```
 
 If doing development locally on the author extension itself:
